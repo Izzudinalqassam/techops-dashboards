@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: techops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dashboard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: docker_postgres_2024
+      TZ: UTC
+    ports:
+      - "5433:5432"  # Use port 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/clean-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    networks:
+      - techops-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Main Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: techops-app
+    restart: unless-stopped
+
+    environment:
+      # Database Configuration (pointing to containerized PostgreSQL)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dashboard
+      DB_USER: postgres
+      DB_PASSWORD: docker_postgres_2024
+      
+      # Server Configuration
+      PORT: 3001
+      NODE_ENV: production
+      
+      # JWT Configuration
+      JWT_SECRET: docker_jwt_secret_2024_change_in_production
+      JWT_EXPIRES_IN: 24h
+      JWT_REFRESH_SECRET: docker_refresh_secret_2024_change_in_production
+      JWT_REFRESH_EXPIRES_IN: 7d
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+      
+      # CORS Configuration
+      CORS_ORIGIN: http://localhost:8080
+      
+      # Logging
+      LOG_LEVEL: info
+      LOG_FILE: logs/app.log
+    ports:
+      - "8080:5173"   # Frontend on port 8080 to avoid conflicts
+      - "8081:3001"   # Backend API on port 8081 to avoid conflicts
+    volumes:
+      - app_logs:/app/backend/logs
+    networks:
+      - techops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching (optional but recommended for production)
+  redis:
+    image: redis:7-alpine
+    container_name: techops-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"  # Use port 6380 to avoid conflicts
+    volumes:
+      - redis_data:/data
+    networks:
+      - techops-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes --requirepass redis_password_2024
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+
+# Custom network for service communication
+networks:
+  techops-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

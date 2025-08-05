@@ -1,0 +1,131 @@
+version: '3.8'
+
+# Development Docker Compose Configuration
+# This file is optimized for development with hot reload and debugging
+
+services:
+  # PostgreSQL Database Service (same as production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: techops-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dashboard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_postgres_2024
+      POSTGRES_INITDB_ARGS: "--timezone=UTC"
+    ports:
+      - "5433:5432"  # Use port 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./database/clean-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    networks:
+      - techops-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis for caching (development)
+  redis:
+    image: redis:7-alpine
+    container_name: techops-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6380:6379"  # Use port 6380 to avoid conflicts
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - techops-dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes --requirepass dev_redis_2024
+
+  # Development Application with Hot Reload
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: techops-app-dev
+    restart: unless-stopped
+    environment:
+      # Database Configuration (pointing to containerized PostgreSQL)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dashboard
+      DB_USER: postgres
+      DB_PASSWORD: dev_postgres_2024
+      
+      # Server Configuration
+      PORT: 3001
+      NODE_ENV: development
+      
+      # JWT Configuration
+      JWT_SECRET: dev_jwt_secret_2024
+      JWT_EXPIRES_IN: 24h
+      JWT_REFRESH_SECRET: dev_refresh_secret_2024
+      JWT_REFRESH_EXPIRES_IN: 7d
+      
+      # Rate Limiting (more lenient for development)
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 1000
+      
+      # CORS Configuration
+      CORS_ORIGIN: http://localhost:5173
+      
+      # Logging
+      LOG_LEVEL: debug
+      LOG_FILE: logs/app.log
+      
+      # Development specific
+      CHOKIDAR_USEPOLLING: true
+    ports:
+      - "5173:5173"   # Frontend on standard Vite port
+      - "3001:3001"   # Backend API on standard port
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./backend:/app/backend
+      - ./package.json:/app/package.json:ro
+      - ./vite.config.ts:/app/vite.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tailwind.config.js:/app/tailwind.config.js:ro
+      - ./postcss.config.js:/app/postcss.config.js:ro
+      - app_dev_logs:/app/backend/logs
+      # Exclude node_modules to avoid conflicts
+      - /app/node_modules
+      - /app/backend/node_modules
+    networks:
+      - techops-dev-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Named volumes for data persistence
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  app_dev_logs:
+    driver: local
+
+# Custom network for service communication
+networks:
+  techops-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

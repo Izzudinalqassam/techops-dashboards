@@ -58,7 +58,6 @@ A comprehensive, modern dashboard application for managing technical operations,
 - **Real-time Notifications**: Comprehensive notification system for all operations
 - **Bulk Operations**: Efficient bulk selection and operations across all modules
 - **Export Functionality**: Export data to Excel/CSV formats
-- **Dark/Light Theme Support**: User preference-based theming
 
 ## 🏗️ Architecture
 

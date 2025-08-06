@@ -249,10 +249,26 @@ const getDeploymentServices = async (req, res) => {
 // Get scripts
 const getScripts = async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT DISTINCT script_name FROM deployment_scripts ORDER BY script_name"
-    );
-    res.json(result.rows.map((row) => row.script_name));
+    const { deploymentId } = req.query;
+    
+    if (deploymentId) {
+      // Get scripts for a specific deployment
+      // Since scripts are not stored separately in the current schema,
+      // return empty array for now
+      res.json([]);
+    } else {
+      // Get all distinct script names (if deployment_scripts table exists)
+      try {
+        const result = await pool.query(
+          "SELECT DISTINCT script_name FROM deployment_scripts ORDER BY script_name"
+        );
+        res.json(result.rows.map((row) => row.script_name));
+      } catch (dbError) {
+        // If deployment_scripts table doesn't exist, return empty array
+        logger.warn("deployment_scripts table not found, returning empty array");
+        res.json([]);
+      }
+    }
   } catch (error) {
     logger.error("Get scripts error", error);
     res.status(500).json({

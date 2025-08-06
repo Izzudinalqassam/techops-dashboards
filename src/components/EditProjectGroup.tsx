@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG, API_ENDPOINTS } from '../config/api';
+import { apiService } from '../services/apiService';
 
 const API_BASE = API_CONFIG.BASE_URL;
 
@@ -42,11 +43,7 @@ const EditProjectGroup: React.FC<EditProjectGroupProps> = ({
 
   const loadProjectGroup = async () => {
     try {
-      const response = await fetch(`${API_BASE}/project-groups/${id}`);
-      if (!response.ok) {
-        throw new Error("Failed to load project group");
-      }
-      const data: ProjectGroup = await response.json();
+      const data: ProjectGroup = await apiService.get(`${API_ENDPOINTS.PROJECT_GROUPS}/${id}`);
       setForm({
         name: data.name,
         description: data.description || "",
@@ -71,30 +68,19 @@ const EditProjectGroup: React.FC<EditProjectGroupProps> = ({
     setError(null);
 
     try {
-      const method = isNew ? "POST" : "PUT";
-      const url = isNew
-        ? `${API_BASE}/project-groups`
-        : `${API_BASE}/project-groups/${id}`;
+      const payload = {
+        name: form.name,
+        description: form.description,
+      };
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save project group");
+      if (isNew) {
+        await apiService.post(API_ENDPOINTS.PROJECT_GROUPS, payload);
+      } else {
+        await apiService.put(`${API_ENDPOINTS.PROJECT_GROUPS}/${id}`, payload);
       }
 
-      // Redirect back to dashboard with success notification
-      const successType = isNew
-        ? "project-group-created"
-        : "project-group-updated";
-      window.location.href = `/?success=${successType}`;
+      // Redirect back to project groups page
+      navigate("/project-groups");
     } catch (err: any) {
       setError(err.message || "Failed to save project group");
       setLoading(false);

@@ -31,7 +31,6 @@ const EditMaintenanceRequestModal: React.FC<
     priority: "Medium" as MaintenancePriority,
     category: "General" as MaintenanceCategory,
     requestedDate: "",
-    scheduledDate: "",
     assignedEngineerId: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,9 +62,6 @@ const EditMaintenanceRequestModal: React.FC<
         requestedDate: request.requestedDate
           ? new Date(request.requestedDate).toISOString().slice(0, 16)
           : formatWIBForInput(), // Auto-populate with current WIB time if empty
-        scheduledDate: request.scheduledDate
-          ? new Date(request.scheduledDate).toISOString().slice(0, 16)
-          : "",
         assignedEngineerId: request.assignedEngineerId || "",
       });
     }
@@ -104,15 +100,6 @@ const EditMaintenanceRequestModal: React.FC<
       }
     }
 
-    if (formData.scheduledDate && formData.requestedDate) {
-      const scheduledDate = new Date(formData.scheduledDate);
-      const requestedDate = new Date(formData.requestedDate);
-      if (scheduledDate < requestedDate) {
-        newErrors.scheduledDate =
-          "Scheduled date cannot be before requested date";
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -137,7 +124,6 @@ const EditMaintenanceRequestModal: React.FC<
         priority: formData.priority,
         category: formData.category,
         requestedDate: formData.requestedDate || undefined,
-        scheduledDate: formData.scheduledDate || undefined,
         assignedEngineerId: formData.assignedEngineerId || undefined,
       });
 
@@ -464,38 +450,8 @@ const EditMaintenanceRequestModal: React.FC<
                 )}
               </div>
 
-              {/* Scheduled Date */}
-              <div>
-                <label
-                  htmlFor="scheduledDate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Scheduled Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="datetime-local"
-                    id="scheduledDate"
-                    name="scheduledDate"
-                    value={formData.scheduledDate}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.scheduledDate
-                        ? "border-red-300"
-                        : "border-gray-300"
-                    }`}
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.scheduledDate && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.scheduledDate}
-                  </p>
-                )}
-              </div>
-
               {/* Assigned Engineer */}
-              <div className="md:col-span-2">
+              <div>
                 <label
                   htmlFor="assignedEngineerId"
                   className="block text-sm font-medium text-gray-700 mb-1"

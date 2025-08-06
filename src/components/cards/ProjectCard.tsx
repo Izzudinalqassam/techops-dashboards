@@ -208,7 +208,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         <div className="flex space-x-2">
           {shouldShowEditButton("project") && (
             <button
-              onClick={() => onEdit?.(project)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit?.(project);
+              }}
               className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               <Edit className="w-4 h-4 mr-1" />
@@ -216,7 +220,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </button>
           )}
           <button
-            onClick={() => onDeploy?.(project)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDeploy?.(project);
+            }}
             className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors"
           >
             <Rocket className="w-4 h-4 mr-1" />

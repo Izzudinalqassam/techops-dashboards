@@ -2,16 +2,19 @@ import React, { useState, useEffect } from "react";
 import { Save, ArrowLeft, Rocket, Plus, X, Code } from "lucide-react";
 import { convertToWIB, convertWIBToUTC } from "../utils/timezone";
 import { ensureArray } from "../utils/arrayValidation";
+import { apiService } from "../services/apiService";
+import { Deployment, Script, Project, Engineer } from "../types";
 
 interface EditDeploymentProps {
-  data: any;
+  data: {
+    projects: Project[];
+    engineers: Engineer[];
+  };
   deploymentId: string;
   onNavigate: (view: string, projectId?: string) => void;
 }
 
-import { API_CONFIG } from "../config/api";
 
-const API_BASE = API_CONFIG.BASE_URL;
 
 const EditDeployment: React.FC<EditDeploymentProps> = ({
   data,
@@ -35,43 +38,37 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
   useEffect(() => {
     const loadDeployment = async () => {
       try {
-        const [deploymentRes, scriptsRes] = await Promise.all([
-          fetch(`${API_BASE}/deployments/${deploymentId}`),
-          fetch(`${API_BASE}/scripts?deploymentId=${deploymentId}`),
+        const [deployment, scriptsData] = await Promise.all([
+          apiService.get<Deployment>(`/deployments/${deploymentId}`),
+          apiService.get<Script[]>(`/deployments/scripts?deploymentId=${deploymentId}`),
         ]);
 
-        if (!deploymentRes.ok) {
-          throw new Error("Failed to load deployment data");
-        }
-
-        const deployment = await deploymentRes.json();
-        const scriptsData = await scriptsRes.json();
-
         // Convert UTC timestamp to WIB for display in datetime-local input
-        const wibDate = deployment.deployed_at
-          ? convertToWIB(deployment.deployed_at)
+        const wibDate = deployment.deployedAt
+          ? convertToWIB(deployment.deployedAt)
           : null;
         const formattedDate = wibDate ? wibDate.toISOString().slice(0, 16) : "";
 
         setFormData({
-          projectId: deployment.project_id,
+          projectId: deployment.projectId,
           status: deployment.status,
           deployedAt: formattedDate,
-          engineerId: deployment.engineer_id || "",
+          engineerId: deployment.engineerId || "",
           description: deployment.description || "",
           services: deployment.services || "",
         });
 
         setScripts(
           scriptsData.length > 0
-            ? scriptsData.map((s: any) => ({
+            ? scriptsData.map((s: Script) => ({
                 title: s.title,
                 content: s.content,
               }))
             : [{ title: "", content: "" }]
         );
-      } catch (err: any) {
-        setError(err.message || "Failed to load deployment");
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load deployment data";
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -88,6 +85,10 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
       // Convert WIB datetime to UTC for backend
       const wibDate = new Date(formData.deployedAt);
       const utcDate = convertWIBToUTC(wibDate);
+      if (!utcDate) {
+        setError("Invalid datetime format");
+        return;
+      }
 
       const payload = {
         projectId: formData.projectId,
@@ -99,21 +100,13 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
         services: formData.services,
       };
 
-      const res = await fetch(`${API_BASE}/deployments/${deploymentId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      await apiService.put(`/deployments/${deploymentId}`, payload);
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to update deployment");
-      }
-
-      // Navigate back to dashboard with success notification
-      window.location.href = "/?success=deployment-updated";
-    } catch (err: any) {
-      setError(err.message || "Failed to update deployment");
+      // Navigate back to deployments page
+      onNavigate("deployments");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update deployment";
+      setError(errorMessage);
     }
   };
 
@@ -210,7 +203,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
                 required
               >
                 <option value="">Select a project</option>
-                {data.projects.map((project: any) => (
+                {data.projects.map((project: Project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
                   </option>
@@ -261,12 +254,15 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
                 required
               >
                 <option value="">Select an engineer</option>
-                {ensureArray(data.engineers).map((engineer: any) => (
-                  <option key={engineer.id} value={engineer.id}>
-                    {engineer.firstName} {engineer.lastName} (@
-                    {engineer.username})
-                  </option>
-                ))}
+                {ensureArray(data.engineers).map((value) => {
+                  const engineer = value as Engineer;
+                  return (
+                    <option key={engineer.id} value={engineer.id}>
+                      {engineer.firstName} {engineer.lastName} (@
+                      {engineer.username})
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>

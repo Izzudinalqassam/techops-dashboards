@@ -37,6 +37,7 @@ router.use("/deployments", deploymentRoutes);
 // Mount project groups routes - these need to be accessible at /api/project-groups
 const {
   getProjectGroups,
+  getProjectGroupById,
   createProjectGroup,
   updateProjectGroup,
   deleteProjectGroup,
@@ -44,6 +45,7 @@ const {
 
 // Project Groups Routes at /api/project-groups
 router.get("/project-groups", requireAuth, getProjectGroups);
+router.get("/project-groups/:id", requireAuth, idParamValidation, handleValidationErrors, getProjectGroupById);
 
 router.post(
   "/project-groups",

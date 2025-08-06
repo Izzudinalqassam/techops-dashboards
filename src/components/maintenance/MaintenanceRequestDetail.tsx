@@ -656,7 +656,7 @@ const MaintenanceRequestDetail: React.FC<MaintenanceRequestDetailProps> = ({
                         <button
                           onClick={() =>
                             window.open(
-                              `/api/maintenance/${request.id}/attachments/${attachment.id}/download`,
+                              `http://localhost:3001/api/maintenance/${request.id}/attachments/${attachment.id}/download`,
                               "_blank"
                             )
                           }

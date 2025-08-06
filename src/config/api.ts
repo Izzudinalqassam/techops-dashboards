@@ -22,7 +22,7 @@ const getEnvNumber = (key: keyof ImportMetaEnv, defaultValue: number): number =>
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:3001'),
+  BASE_URL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:3001/api'),
   TIMEOUT: getEnvNumber('VITE_API_TIMEOUT', 10000), // 10 seconds
   RETRY_ATTEMPTS: getEnvNumber('VITE_API_RETRY_ATTEMPTS', 3),
   RETRY_DELAY: getEnvNumber('VITE_API_RETRY_DELAY', 1000), // 1 second
@@ -64,27 +64,27 @@ validateApiConfig();
 
 // API Endpoints
 export const API_ENDPOINTS = {
-  PROJECTS: '/api/projects',
-  DEPLOYMENTS: '/api/deployments',
-  PROJECT_GROUPS: '/api/project-groups',
-  ENGINEERS: '/api/engineers',
-  SERVICES: '/api/services',
-  SCRIPTS: '/api/scripts',
-  DEPLOYMENT_SERVICES: '/api/deployment-services',
-  USERS: '/api/users',
-  MAINTENANCE: '/api/admin/maintenance',
-  MIGRATIONS: '/api/admin/migrate',
+  PROJECTS: '/projects',
+  DEPLOYMENTS: '/deployments',
+  PROJECT_GROUPS: '/project-groups',
+  ENGINEERS: '/engineers',
+  SERVICES: '/services',
+  SCRIPTS: '/scripts',
+  DEPLOYMENT_SERVICES: '/deployment-services',
+  USERS: '/users',
+  MAINTENANCE: '/admin/maintenance',
+  MIGRATIONS: '/admin/migrate',
 
-  HEALTH: '/api/health',
+  HEALTH: '/health',
   // Authentication endpoints
   AUTH: {
-    LOGIN: '/api/auth/login',
-    LOGOUT: '/api/auth/logout',
-    REGISTER: '/api/auth/register',
-    REFRESH: '/api/auth/refresh',
-    ME: '/api/auth/me',
-    PROFILE: '/api/auth/profile',
-    CHANGE_PASSWORD: '/api/auth/change-password',
+    LOGIN: '/auth/login',
+    LOGOUT: '/auth/logout',
+    REGISTER: '/auth/register',
+    REFRESH: '/auth/refresh',
+    ME: '/auth/me',
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password',
   },
 } as const;
 

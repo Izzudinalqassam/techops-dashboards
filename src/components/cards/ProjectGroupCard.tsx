@@ -159,12 +159,14 @@ const ProjectGroupCard: React.FC<ProjectGroupCardProps> = ({
                   >
                     <div
                       className={`w-1.5 h-1.5 rounded-full ${
-                        deployment.status === "Success"
+                        deployment.status === "completed"
                           ? "bg-green-500"
-                          : deployment.status === "Failed"
+                          : deployment.status === "failed"
                           ? "bg-red-500"
-                          : deployment.status === "In Progress"
+                          : deployment.status === "running"
                           ? "bg-blue-500"
+                          : deployment.status === "pending"
+                          ? "bg-yellow-500"
                           : "bg-gray-400"
                       }`}
                     />
@@ -195,7 +197,10 @@ const ProjectGroupCard: React.FC<ProjectGroupCardProps> = ({
         <div className="flex space-x-2">
           {shouldShowEditButton("project_group") && (
             <button
-              onClick={() => onEdit?.(projectGroup)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(projectGroup);
+              }}
               className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               <Edit className="w-4 h-4 mr-1" />
@@ -203,7 +208,10 @@ const ProjectGroupCard: React.FC<ProjectGroupCardProps> = ({
             </button>
           )}
           <button
-            onClick={() => onAddProject?.(projectGroup)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddProject?.(projectGroup);
+            }}
             className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -211,7 +219,10 @@ const ProjectGroupCard: React.FC<ProjectGroupCardProps> = ({
           </button>
           {onDelete && shouldShowDeleteButton("project_group") && (
             <button
-              onClick={handleDeleteClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(e);
+              }}
               className="flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 transition-colors"
               title="Delete project group"
             >

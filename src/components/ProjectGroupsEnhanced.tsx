@@ -7,7 +7,7 @@ import ViewToggle, { ViewMode } from "./ui/ViewToggle";
 import ProjectGroupCard from "./cards/ProjectGroupCard";
 import Button from "./ui/Button";
 import QuickCreateModal from "./modals/QuickCreateModal";
-import EditProjectGroupModal from "./modals/EditProjectGroupModal";
+
 import { useProjectGroups, useProjects } from "../hooks";
 import { ProjectGroup, Project, Deployment } from "../types";
 import { useNotification } from "../contexts/NotificationContext";
@@ -30,8 +30,7 @@ const ProjectGroupsEnhanced: React.FC<ProjectGroupsEnhancedProps> = ({
     "project" | "project-group"
   >("project-group");
   const [quickCreateContext, setQuickCreateContext] = useState<any>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<ProjectGroup | null>(null);
+
 
   const navigate = useNavigate();
   const breadcrumbs = useBreadcrumbs();
@@ -83,8 +82,7 @@ const ProjectGroupsEnhanced: React.FC<ProjectGroupsEnhancedProps> = ({
   };
 
   const handleEditGroup = (group: ProjectGroup) => {
-    setSelectedGroup(group);
-    setShowEditModal(true);
+    navigate(`/project-groups/${group.id}/edit`);
   };
 
   const handleDeleteGroup = async (group: ProjectGroup) => {
@@ -381,18 +379,7 @@ const ProjectGroupsEnhanced: React.FC<ProjectGroupsEnhancedProps> = ({
         context={quickCreateContext}
       />
 
-      {/* Edit Project Group Modal */}
-      {selectedGroup && (
-        <EditProjectGroupModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedGroup(null);
-          }}
-          projectGroup={selectedGroup}
-          onProjectGroupUpdated={fetchProjectGroups}
-        />
-      )}
+
     </div>
   );
 };

@@ -20,7 +20,7 @@ const {
 // GET /deployments/services - Get distinct services
 router.get("/services", requireAuth, getServices);
 
-// GET /deployments/scripts - Get distinct scripts
+// GET /deployments/scripts - Get distinct scripts or scripts by deployment ID
 router.get("/scripts", requireAuth, getScripts);
 
 // GET /deployments/deployment-services - Get all deployment services

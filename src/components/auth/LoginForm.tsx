@@ -204,7 +204,7 @@ const LoginForm: React.FC = () => {
             <Lock className="h-6 w-6 text-blue-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Sign in to Dashboard
+            Sign in to Dashboards
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Enter your credentials to access your account

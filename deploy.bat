@@ -18,12 +18,12 @@ set "BACKEND_URL=http://localhost:8081/api"
 set "HEALTH_URL=http://localhost:8081/api/health"
 set "DB_PORT=5433"
 
-REM Color codes (limited in Windows CMD)
-set "RED=[91m"
-set "GREEN=[92m"
-set "YELLOW=[93m"
-set "BLUE=[94m"
-set "NC=[0m"
+REM Color codes (disabled for Windows CMD compatibility)
+set "RED="
+set "GREEN="
+set "YELLOW="
+set "BLUE="
+set "NC="
 
 REM Initialize log file
 echo Deployment started at %date% %time% > "%LOG_FILE%"
@@ -234,7 +234,7 @@ if "%CURL_AVAILABLE%"=="true" (
         goto health_success
     )
     
-    echo %YELLOW%⏳ Waiting for backend to be healthy (attempt !health_attempt!/!max_health_attempts!)...%NC%
+    echo %YELLOW%⏳ Waiting for backend to be healthy (attempt !health_attempt!/!max_health_attempts!)%NC%
     timeout /t 10 /nobreak >nul
     set /a "health_attempt+=1"
     goto health_loop

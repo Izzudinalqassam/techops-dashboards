@@ -321,17 +321,36 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
   };
   
   const TrendsChart = () => {
+    const [hoveredPoint, setHoveredPoint] = React.useState<{ type: string; index: number; x: number; y: number } | null>(null);
+    const [isVisible, setIsVisible] = React.useState(false);
+
+    React.useEffect(() => {
+      setIsVisible(true);
+    }, []);
+
     // Pastikan ada data untuk ditampilkan
     if (!deploymentTrends.length && (!maintenanceData?.dailyTrends?.length)) {
       return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <LineChart className="h-5 w-5 mr-2 text-blue-600" />
-            Tren 7 Hari Terakhir
-          </h3>
-          <div className="text-center py-8">
-            <LineChart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Belum ada data untuk ditampilkan</p>
+        <div className="bg-gradient-to-br from-white to-gray-50 p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900 flex items-center">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg mr-3">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              Tren 7 Hari Terakhir
+            </h3>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Live Data</span>
+            </div>
+          </div>
+          <div className="text-center py-12">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full opacity-20 animate-pulse"></div>
+              <TrendingUp className="h-16 w-16 text-gray-300 mx-auto mb-4 relative z-10" />
+            </div>
+            <p className="text-gray-500 text-lg">Belum ada data untuk ditampilkan</p>
+            <p className="text-gray-400 text-sm mt-2">Data akan muncul setelah ada aktivitas deployment dan maintenance</p>
           </div>
         </div>
       );
@@ -343,157 +362,398 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
       1 // Minimal value 1 untuk menghindari pembagian dengan 0
     );
 
-    // Prepare data for line chart
-    const chartWidth = 400;
-    const chartHeight = 200;
-    const padding = 40;
+    // Responsive chart dimensions
+    const chartWidth = 500;
+    const chartHeight = 280;
+    const padding = 60;
     const dataPoints = deploymentTrends.length;
     
     // Calculate points for deployment line
     const deploymentPoints = deploymentTrends.map((trend, index) => {
-      const x = padding + (index * (chartWidth - 2 * padding)) / (dataPoints - 1);
+      const x = padding + (index * (chartWidth - 2 * padding)) / Math.max(dataPoints - 1, 1);
       const y = chartHeight - padding - ((trend.total / maxValue) * (chartHeight - 2 * padding));
-      return { x, y, value: trend.total };
+      return { x, y, value: trend.total, date: trend.date };
     });
     
     // Calculate points for maintenance line
     const maintenancePoints = deploymentTrends.map((trend, index) => {
       const maintenanceTrend = maintenanceData?.dailyTrends?.[index];
       const value = maintenanceTrend?.requests || 0;
-      const x = padding + (index * (chartWidth - 2 * padding)) / (dataPoints - 1);
+      const x = padding + (index * (chartWidth - 2 * padding)) / Math.max(dataPoints - 1, 1);
       const y = chartHeight - padding - ((value / maxValue) * (chartHeight - 2 * padding));
-      return { x, y, value };
+      return { x, y, value, date: trend.date };
     });
     
-    // Create path strings for lines
-    const deploymentPath = deploymentPoints
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ');
+    // Create smooth curve paths using quadratic bezier curves
+    const createSmoothPath = (points: typeof deploymentPoints) => {
+      if (points.length < 2) return '';
       
-    const maintenancePath = maintenancePoints
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ');
+      let path = `M ${points[0].x} ${points[0].y}`;
+      
+      for (let i = 1; i < points.length; i++) {
+        const prevPoint = points[i - 1];
+        const currentPoint = points[i];
+        const controlX = (prevPoint.x + currentPoint.x) / 2;
+        
+        path += ` Q ${controlX} ${prevPoint.y} ${currentPoint.x} ${currentPoint.y}`;
+      }
+      
+      return path;
+    };
+    
+    const deploymentPath = createSmoothPath(deploymentPoints);
+    const maintenancePath = createSmoothPath(maintenancePoints);
+    
+    // Create area paths for gradient fills
+    const createAreaPath = (points: typeof deploymentPoints) => {
+      if (points.length < 2) return '';
+      
+      let path = `M ${points[0].x} ${chartHeight - padding}`;
+      path += ` L ${points[0].x} ${points[0].y}`;
+      
+      for (let i = 1; i < points.length; i++) {
+        const prevPoint = points[i - 1];
+        const currentPoint = points[i];
+        const controlX = (prevPoint.x + currentPoint.x) / 2;
+        
+        path += ` Q ${controlX} ${prevPoint.y} ${currentPoint.x} ${currentPoint.y}`;
+      }
+      
+      path += ` L ${points[points.length - 1].x} ${chartHeight - padding} Z`;
+      return path;
+    };
+    
+    const deploymentAreaPath = createAreaPath(deploymentPoints);
+    const maintenanceAreaPath = createAreaPath(maintenancePoints);
     
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <LineChart className="h-5 w-5 mr-2 text-blue-600" />
-          Tren 7 Hari Terakhir
-        </h3>
-        
-        {/* Legend */}
-        <div className="flex justify-center space-x-6 mb-4">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-            <span className="text-sm text-gray-600">Deployment</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-            <span className="text-sm text-gray-600">Maintenance</span>
+      <div className={`bg-gradient-to-br from-white to-gray-50 p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900 flex items-center">
+            <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg mr-3">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+            Tren 7 Hari Terakhir
+          </h3>
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>Live Data</span>
           </div>
         </div>
         
-        {/* Line Chart */}
-        <div className="relative">
-          <svg width={chartWidth} height={chartHeight} className="mx-auto">
-            {/* Grid lines */}
+        {/* Enhanced Legend */}
+        <div className="flex justify-center space-x-8 mb-6">
+          <div className="flex items-center group cursor-pointer">
+            <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full mr-3 shadow-lg group-hover:scale-110 transition-transform"></div>
+            <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">Deployment</span>
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">
+              {deploymentTrends.reduce((sum, trend) => sum + trend.total, 0)}
+            </span>
+          </div>
+          <div className="flex items-center group cursor-pointer">
+            <div className="w-4 h-4 bg-gradient-to-r from-orange-500 to-red-500 rounded-full mr-3 shadow-lg group-hover:scale-110 transition-transform"></div>
+            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600 transition-colors">Maintenance</span>
+            <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full font-semibold">
+              {maintenanceData?.dailyTrends?.reduce((sum, trend) => sum + trend.requests, 0) || 0}
+            </span>
+          </div>
+        </div>
+        
+        {/* Enhanced Line Chart */}
+        <div className="relative bg-white rounded-lg p-4 shadow-inner">
+          <svg width={chartWidth} height={chartHeight} className="mx-auto overflow-visible">
             <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
+              {/* Enhanced grid pattern */}
+              <pattern id="modernGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#f8fafc" strokeWidth="1"/>
               </pattern>
+              
+              {/* Gradient definitions */}
+              <linearGradient id="deploymentGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05"/>
+              </linearGradient>
+              
+              <linearGradient id="maintenanceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f97316" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#f97316" stopOpacity="0.05"/>
+              </linearGradient>
+              
+              {/* Glow effects */}
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge> 
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/> 
+                </feMerge>
+              </filter>
             </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
             
-            {/* Y-axis labels */}
+            {/* Background grid */}
+            <rect width="100%" height="100%" fill="url(#modernGrid)" />
+            
+            {/* Y-axis labels with enhanced styling */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
               const y = chartHeight - padding - (ratio * (chartHeight - 2 * padding));
               const value = Math.round(maxValue * ratio);
               return (
                 <g key={index}>
-                  <line x1={padding - 5} y1={y} x2={padding} y2={y} stroke="#9ca3af" strokeWidth="1" />
-                  <text x={padding - 10} y={y + 4} textAnchor="end" className="text-xs fill-gray-500">
+                  <line 
+                    x1={padding - 8} 
+                    y1={y} 
+                    x2={chartWidth - padding} 
+                    y2={y} 
+                    stroke={ratio === 0 ? "#6b7280" : "#e5e7eb"} 
+                    strokeWidth={ratio === 0 ? "2" : "1"}
+                    strokeDasharray={ratio === 0 ? "none" : "2,2"}
+                  />
+                  <text 
+                    x={padding - 15} 
+                    y={y + 4} 
+                    textAnchor="end" 
+                    className="text-xs fill-gray-600 font-medium"
+                  >
                     {value}
                   </text>
                 </g>
               );
             })}
             
-            {/* X-axis labels */}
+            {/* X-axis labels with enhanced styling */}
             {deploymentTrends.map((trend, index) => {
-              const x = padding + (index * (chartWidth - 2 * padding)) / (dataPoints - 1);
+              const x = padding + (index * (chartWidth - 2 * padding)) / Math.max(dataPoints - 1, 1);
               return (
                 <g key={index}>
-                  <line x1={x} y1={chartHeight - padding} x2={x} y2={chartHeight - padding + 5} stroke="#9ca3af" strokeWidth="1" />
-                  <text x={x} y={chartHeight - padding + 18} textAnchor="middle" className="text-xs fill-gray-500">
+                  <line 
+                    x1={x} 
+                    y1={chartHeight - padding} 
+                    x2={x} 
+                    y2={chartHeight - padding + 8} 
+                    stroke="#6b7280" 
+                    strokeWidth="2"
+                  />
+                  <text 
+                    x={x} 
+                    y={chartHeight - padding + 22} 
+                    textAnchor="middle" 
+                    className="text-xs fill-gray-600 font-medium"
+                  >
                     {trend.date.split(' ')[0]}
+                  </text>
+                  <text 
+                    x={x} 
+                    y={chartHeight - padding + 35} 
+                    textAnchor="middle" 
+                    className="text-xs fill-gray-500"
+                  >
+                    {trend.date.split(' ')[1]}
                   </text>
                 </g>
               );
             })}
             
-            {/* Deployment line */}
+            {/* Area fills with gradients */}
+            <path
+              d={deploymentAreaPath}
+              fill="url(#deploymentGradient)"
+              className="animate-pulse"
+              style={{
+                animation: isVisible ? 'fadeInUp 1s ease-out 0.2s both' : 'none'
+              }}
+            />
+            
+            <path
+              d={maintenanceAreaPath}
+              fill="url(#maintenanceGradient)"
+              className="animate-pulse"
+              style={{
+                animation: isVisible ? 'fadeInUp 1s ease-out 0.4s both' : 'none'
+              }}
+            />
+            
+            {/* Enhanced deployment line */}
             <path
               d={deploymentPath}
               fill="none"
               stroke="#3b82f6"
-              strokeWidth="3"
+              strokeWidth="4"
               strokeLinecap="round"
               strokeLinejoin="round"
+              filter="url(#glow)"
+              className="drop-shadow-lg"
+              style={{
+                strokeDasharray: isVisible ? 'none' : '1000',
+                strokeDashoffset: isVisible ? '0' : '1000',
+                transition: 'stroke-dashoffset 2s ease-out 0.5s'
+              }}
             />
             
-            {/* Maintenance line */}
+            {/* Enhanced maintenance line */}
             <path
               d={maintenancePath}
               fill="none"
               stroke="#f97316"
-              strokeWidth="3"
+              strokeWidth="4"
               strokeLinecap="round"
               strokeLinejoin="round"
+              filter="url(#glow)"
+              className="drop-shadow-lg"
+              style={{
+                strokeDasharray: isVisible ? 'none' : '1000',
+                strokeDashoffset: isVisible ? '0' : '1000',
+                transition: 'stroke-dashoffset 2s ease-out 0.7s'
+              }}
             />
             
-            {/* Deployment points */}
+            {/* Enhanced deployment points */}
             {deploymentPoints.map((point, index) => (
               <g key={`deploy-${index}`}>
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r="4"
+                  r="8"
                   fill="#3b82f6"
                   stroke="white"
-                  strokeWidth="2"
-                  className="hover:r-6 transition-all cursor-pointer"
+                  strokeWidth="3"
+                  className="hover:r-10 transition-all duration-200 cursor-pointer drop-shadow-lg"
+                  filter="url(#glow)"
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredPoint({
+                      type: 'deployment',
+                      index,
+                      x: rect.left + rect.width / 2,
+                      y: rect.top
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  style={{
+                    animation: isVisible ? `popIn 0.5s ease-out ${0.8 + index * 0.1}s both` : 'none'
+                  }}
                 />
-                <title>{`${deploymentTrends[index].date}: ${point.value} deployments`}</title>
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r="4"
+                  fill="white"
+                  className="pointer-events-none"
+                />
               </g>
             ))}
             
-            {/* Maintenance points */}
+            {/* Enhanced maintenance points */}
             {maintenancePoints.map((point, index) => (
               <g key={`maintenance-${index}`}>
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r="4"
+                  r="8"
                   fill="#f97316"
                   stroke="white"
-                  strokeWidth="2"
-                  className="hover:r-6 transition-all cursor-pointer"
+                  strokeWidth="3"
+                  className="hover:r-10 transition-all duration-200 cursor-pointer drop-shadow-lg"
+                  filter="url(#glow)"
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredPoint({
+                      type: 'maintenance',
+                      index,
+                      x: rect.left + rect.width / 2,
+                      y: rect.top
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  style={{
+                    animation: isVisible ? `popIn 0.5s ease-out ${1.0 + index * 0.1}s both` : 'none'
+                  }}
                 />
-                <title>{`${deploymentTrends[index].date}: ${point.value} maintenance requests`}</title>
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r="4"
+                  fill="white"
+                  className="pointer-events-none"
+                />
               </g>
             ))}
           </svg>
+          
+          {/* Enhanced Tooltip */}
+          {hoveredPoint && (
+            <div 
+              className="fixed z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-2xl border border-gray-700 pointer-events-none transform -translate-x-1/2 -translate-y-full"
+              style={{
+                left: hoveredPoint.x,
+                top: hoveredPoint.y - 10
+              }}
+            >
+              <div className="text-sm font-semibold mb-1">
+                {deploymentTrends[hoveredPoint.index]?.date}
+              </div>
+              <div className="text-xs">
+                {hoveredPoint.type === 'deployment' ? (
+                  <>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                      Deployment: <span className="font-bold ml-1">{deploymentPoints[hoveredPoint.index]?.value}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-orange-400 rounded-full mr-2"></div>
+                      Maintenance: <span className="font-bold ml-1">{maintenancePoints[hoveredPoint.index]?.value}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          )}
         </div>
         
-        {/* Data summary */}
-        <div className="mt-4 grid grid-cols-7 gap-2 text-xs">
+        {/* Enhanced data summary */}
+        <div className="mt-6 grid grid-cols-7 gap-3">
           {deploymentTrends.map((trend, index) => {
             const maintenanceTrend = maintenanceData?.dailyTrends?.[index];
+            const isToday = index === deploymentTrends.length - 1;
             return (
-              <div key={`summary-${index}`} className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-medium text-gray-700">{trend.date.split(' ')[1]}</div>
-                <div className="text-blue-600 font-semibold">{trend.total}</div>
-                <div className="text-orange-600 font-semibold">{maintenanceTrend?.requests || 0}</div>
+              <div 
+                key={`summary-${index}`} 
+                className={`text-center p-3 rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer ${
+                  isToday 
+                    ? 'bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 shadow-md' 
+                    : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                }`}
+                style={{
+                  animation: isVisible ? `slideInUp 0.5s ease-out ${1.2 + index * 0.1}s both` : 'none'
+                }}
+              >
+                <div className={`font-bold text-sm mb-2 ${
+                  isToday ? 'text-blue-700' : 'text-gray-700'
+                }`}>
+                  {trend.date.split(' ')[0]}
+                </div>
+                <div className="text-xs text-gray-500 mb-1">
+                  {trend.date.split(' ')[1]}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                    <span className="text-blue-600 font-bold text-sm">{trend.total}</span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
+                    <span className="text-orange-600 font-bold text-sm">{maintenanceTrend?.requests || 0}</span>
+                  </div>
+                </div>
+                {isToday && (
+                  <div className="mt-2 text-xs text-blue-600 font-semibold">
+                    Hari Ini
+                  </div>
+                )}
               </div>
             );
           })}
@@ -663,50 +923,95 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onNavigate }) => {
         <MaintenanceStatusChart />
       </div>
 
-      {/* Maintenance Metrics */}
-       {maintenanceData && (
-         <div className="bg-white p-6 rounded-lg shadow-sm border">
-           <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-             <Activity className="h-6 w-6 mr-2 text-blue-600" />
-             Metrik Maintenance
-           </h2>
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-             <div className="text-center">
-               <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mx-auto mb-3">
-                 <CheckCircle className="h-6 w-6 text-green-600" />
-               </div>
-               <p className="text-2xl font-bold text-gray-900">{maintenanceData.completionRate}%</p>
-               <p className="text-sm text-gray-600">Tingkat Penyelesaian</p>
-             </div>
-             <div className="text-center">
-               <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mx-auto mb-3">
-                 <Clock className="h-6 w-6 text-blue-600" />
-               </div>
-               <p className="text-2xl font-bold text-gray-900">{maintenanceData.avgResolutionDays}</p>
-               <p className="text-sm text-gray-600">Rata-rata Hari</p>
-             </div>
-             <div className="text-center">
-               <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-3">
-                 <AlertTriangle className="h-6 w-6 text-red-600" />
-               </div>
-               <p className="text-2xl font-bold text-gray-900">{maintenanceData.priorityCounts.critical + maintenanceData.priorityCounts.high}</p>
-               <p className="text-sm text-gray-600">Prioritas Tinggi</p>
-             </div>
-             <div className="text-center">
-               <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-full mx-auto mb-3">
-                 <Calendar className="h-6 w-6 text-yellow-600" />
-               </div>
-               <p className="text-2xl font-bold text-gray-900">{maintenanceData.statusCounts.pending + maintenanceData.statusCounts.inProgress}</p>
-               <p className="text-sm text-gray-600">Sedang Berjalan</p>
-             </div>
-           </div>
-         </div>
-       )}
-
        {/* Charts Section */}
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          <TrendsChart />
-         <MaintenanceStatusChart />
+         
+         {/* Recent Activity Summary */}
+         <div className="bg-gradient-to-br from-white to-gray-50 p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+           <div className="flex items-center justify-between mb-6">
+             <h3 className="text-xl font-bold text-gray-900 flex items-center">
+               <div className="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg mr-3">
+                 <Activity className="h-5 w-5 text-white" />
+               </div>
+               Aktivitas Terkini
+             </h3>
+             <div className="flex items-center space-x-2 text-sm text-gray-500">
+               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+               <span>Real-time</span>
+             </div>
+           </div>
+           
+           <div className="space-y-4">
+             {/* Recent Deployments */}
+             <div className="bg-white rounded-lg p-4 border border-gray-100 hover:border-blue-200 transition-colors">
+               <div className="flex items-center justify-between mb-2">
+                 <div className="flex items-center space-x-2">
+                   <Rocket className="h-4 w-4 text-blue-600" />
+                   <span className="text-sm font-medium text-gray-700">Deployment Hari Ini</span>
+                 </div>
+                 <span className="text-lg font-bold text-blue-600">
+                   {deploymentTrends.length > 0 ? deploymentTrends[deploymentTrends.length - 1]?.total || 0 : 0}
+                 </span>
+               </div>
+               <div className="text-xs text-gray-500">
+                 {successfulDeployments} berhasil • {failedDeployments} gagal • {pendingDeployments} pending
+               </div>
+             </div>
+             
+             {/* Recent Maintenance */}
+             {maintenanceData && (
+               <div className="bg-white rounded-lg p-4 border border-gray-100 hover:border-orange-200 transition-colors">
+                 <div className="flex items-center justify-between mb-2">
+                   <div className="flex items-center space-x-2">
+                     <Wrench className="h-4 w-4 text-orange-600" />
+                     <span className="text-sm font-medium text-gray-700">Maintenance Aktif</span>
+                   </div>
+                   <span className="text-lg font-bold text-orange-600">
+                     {maintenanceData.statusCounts.pending + maintenanceData.statusCounts.inProgress}
+                   </span>
+                 </div>
+                 <div className="text-xs text-gray-500">
+                   {maintenanceData.statusCounts.pending} pending • {maintenanceData.statusCounts.inProgress} in progress
+                 </div>
+               </div>
+             )}
+             
+             {/* System Health */}
+             <div className="bg-white rounded-lg p-4 border border-gray-100 hover:border-green-200 transition-colors">
+               <div className="flex items-center justify-between mb-2">
+                 <div className="flex items-center space-x-2">
+                   <CheckCircle className="h-4 w-4 text-green-600" />
+                   <span className="text-sm font-medium text-gray-700">System Health</span>
+                 </div>
+                 <span className="text-lg font-bold text-green-600">
+                   {Math.round((successfulDeployments / Math.max(successfulDeployments + failedDeployments, 1)) * 100)}%
+                 </span>
+               </div>
+               <div className="text-xs text-gray-500">
+                 Success rate deployment 7 hari terakhir
+               </div>
+             </div>
+             
+             {/* Quick Actions */}
+             <div className="pt-2">
+               <div className="flex space-x-2">
+                 <button
+                   onClick={() => onNavigate("deployments")}
+                   className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                 >
+                   View Deployments
+                 </button>
+                 <button
+                   onClick={() => onNavigate("maintenance")}
+                   className="flex-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                 >
+                   View Maintenance
+                 </button>
+               </div>
+             </div>
+           </div>
+         </div>
        </div>
 
        {/* Priority & Category Breakdown */}

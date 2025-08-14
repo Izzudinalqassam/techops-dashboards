@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Save, ArrowLeft, Rocket, Plus, X, Code } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import { useDeployments } from "../hooks/useDeployments";
@@ -14,6 +15,7 @@ interface AddDeploymentProps {
 const AddDeployment: React.FC<AddDeploymentProps> = ({ data, onNavigate }) => {
   const { createDeployment } = useDeployments();
   const { showSuccess, showError } = useNotification();
+  const navigate = useNavigate();
   // Deployment date/time removed - backend will auto-populate deployed_at timestamp
 
   const [formData, setFormData] = useState({
@@ -52,14 +54,21 @@ const AddDeployment: React.FC<AddDeploymentProps> = ({ data, onNavigate }) => {
       await createDeployment(deploymentData);
 
       // Show success notification
-      showSuccess("Deployment created successfully!");
+      showSuccess(
+        "Deployment Created",
+        "Deployment has been successfully created."
+      );
 
-      // Navigate back to deployments page
-      onNavigate("deployments");
+      // Navigate back to deployments page after a short delay
+      setTimeout(() => {
+        navigate("/deployments");
+      }, 1000);
     } catch (err) {
       console.error("Failed to create deployment:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to create deployment";
       showError(
-        "Failed to create deployment. Please ensure the backend is running and data is valid."
+        "Creation Failed",
+        errorMessage
       );
     }
   };
@@ -97,7 +106,7 @@ const AddDeployment: React.FC<AddDeploymentProps> = ({ data, onNavigate }) => {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <button
-          onClick={() => onNavigate("deployments")}
+          onClick={() => navigate("/deployments")}
           className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -352,7 +361,7 @@ docker run -d -p 3000:3000 app:latest"
           </button>
           <button
             type="button"
-            onClick={() => onNavigate("deployments")}
+            onClick={() => navigate("/deployments")}
             className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
           >
             Cancel

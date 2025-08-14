@@ -1,6 +1,7 @@
 const pool = require("../config/database");
 const { logger } = require("../utils/logger");
 const { mapDeploymentToFrontend } = require("../utils/userMapper");
+const { resetSequenceIfTableEmpty } = require("../utils/sequenceUtils");
 
 // Create new deployment
 const createDeployment = async (req, res) => {
@@ -37,6 +38,20 @@ const createDeployment = async (req, res) => {
     );
 
     const deploymentId = insertResult.rows[0].id;
+
+    // Insert scripts if provided
+    if (scripts && Array.isArray(scripts) && scripts.length > 0) {
+      for (let i = 0; i < scripts.length; i++) {
+        const script = scripts[i];
+        if (script.title || script.content) {
+          await pool.query(
+            `INSERT INTO deployment_scripts (deployment_id, title, content, execution_order, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+            [deploymentId, script.title || '', script.content || '', i + 1]
+          );
+        }
+      }
+    }
 
     // Fetch the complete deployment data with engineer and project information
     const result = await pool.query(
@@ -99,7 +114,8 @@ const getDeploymentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    // Fetch deployment details
+    const deploymentResult = await pool.query(
       `SELECT d.*, p.name as project_name, pg.name as project_group_name,
               u.id as engineer_id, u.first_name as engineer_first_name,
               u.last_name as engineer_last_name, u.email as engineer_email,
@@ -112,14 +128,23 @@ const getDeploymentById = async (req, res) => {
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (deploymentResult.rows.length === 0) {
       return res.status(404).json({
         error: "Not Found",
         message: "Deployment not found",
       });
     }
 
-    const mappedDeployment = mapDeploymentToFrontend(result.rows[0]);
+    // Fetch associated scripts
+    const scriptsResult = await pool.query(
+      "SELECT id, title, content FROM deployment_scripts WHERE deployment_id = $1 ORDER BY execution_order",
+      [id]
+    );
+
+    const mappedDeployment = mapDeploymentToFrontend(deploymentResult.rows[0]);
+    
+    // Attach scripts to the deployment object
+    mappedDeployment.scripts = scriptsResult.rows;
 
     logger.info("Deployment fetched", { deploymentId: id });
     res.json(mappedDeployment);
@@ -138,14 +163,15 @@ const getDeploymentById = async (req, res) => {
 const updateDeployment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { projectId, name, status, engineerId, description } = req.body;
+    const { projectId, name, status, engineerId, description, scripts, services } = req.body;
 
+    // Update deployment basic information
     const result = await pool.query(
       `UPDATE deployments 
        SET project_id = $1, deployment_name = $2, status = $3, 
-           deployed_by = $4, notes = $5, updated_at = NOW() 
-       WHERE id = $6 RETURNING *`,
-      [projectId, name, status, engineerId, description, id]
+           deployed_by = $4, notes = $5, services = $6, updated_at = NOW() 
+       WHERE id = $7 RETURNING *`,
+      [projectId, name, status, engineerId, description, services, id]
     );
 
     if (result.rows.length === 0) {
@@ -155,8 +181,52 @@ const updateDeployment = async (req, res) => {
       });
     }
 
+    // Update scripts if provided
+    if (scripts && Array.isArray(scripts)) {
+      // Delete existing scripts
+      await pool.query(
+        "DELETE FROM deployment_scripts WHERE deployment_id = $1",
+        [id]
+      );
+
+      // Insert new scripts
+      for (let i = 0; i < scripts.length; i++) {
+        const script = scripts[i];
+        if (script.title || script.content) {
+          await pool.query(
+            `INSERT INTO deployment_scripts (deployment_id, title, content, execution_order, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+            [id, script.title || '', script.content || '', i + 1]
+          );
+        }
+      }
+    }
+
+    // Fetch updated deployment with scripts
+    const updatedDeployment = await pool.query(
+      `SELECT d.*, p.name as project_name, pg.name as project_group_name,
+              u.id as engineer_id, u.first_name as engineer_first_name,
+              u.last_name as engineer_last_name, u.email as engineer_email,
+              CONCAT(u.first_name, ' ', u.last_name) as engineer_name
+       FROM deployments d
+       LEFT JOIN projects p ON d.project_id = p.id
+       LEFT JOIN project_groups pg ON p.group_id = pg.id
+       LEFT JOIN users u ON d.deployed_by = u.id
+       WHERE d.id = $1`,
+      [id]
+    );
+
+    // Fetch associated scripts
+    const scriptsResult = await pool.query(
+      "SELECT id, title, content FROM deployment_scripts WHERE deployment_id = $1 ORDER BY execution_order",
+      [id]
+    );
+
+    const mappedDeployment = mapDeploymentToFrontend(updatedDeployment.rows[0]);
+    mappedDeployment.scripts = scriptsResult.rows;
+
     logger.info("Deployment updated", { deploymentId: id });
-    res.json(result.rows[0]);
+    res.json(mappedDeployment);
   } catch (error) {
     logger.error("Update deployment error", error, {
       deploymentId: req.params.id,
@@ -185,6 +255,10 @@ const deleteDeployment = async (req, res) => {
         message: "Deployment not found",
       });
     }
+
+    // Check if tables are empty and reset sequences if needed
+    await resetSequenceIfTableEmpty("deployments");
+    await resetSequenceIfTableEmpty("deployment_scripts");
 
     logger.info("Deployment deleted", { deploymentId: id });
     res.status(204).send(); // Use 204 No Content for successful deletion
@@ -253,16 +327,18 @@ const getScripts = async (req, res) => {
     
     if (deploymentId) {
       // Get scripts for a specific deployment
-      // Since scripts are not stored separately in the current schema,
-      // return empty array for now
-      res.json([]);
+      const result = await pool.query(
+        "SELECT id, title, content, execution_order FROM deployment_scripts WHERE deployment_id = $1 ORDER BY execution_order",
+        [deploymentId]
+      );
+      res.json(result.rows);
     } else {
-      // Get all distinct script names (if deployment_scripts table exists)
+      // Get all distinct script titles (if deployment_scripts table exists)
       try {
         const result = await pool.query(
-          "SELECT DISTINCT script_name FROM deployment_scripts ORDER BY script_name"
+          "SELECT DISTINCT title FROM deployment_scripts ORDER BY title"
         );
-        res.json(result.rows.map((row) => row.script_name));
+        res.json(result.rows.map((row) => row.title));
       } catch (dbError) {
         // If deployment_scripts table doesn't exist, return empty array
         logger.warn("deployment_scripts table not found, returning empty array");

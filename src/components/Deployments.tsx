@@ -150,7 +150,7 @@ const Deployments: React.FC<DeploymentsProps> = ({
               (p: any) => p.id === deployment.projectId
             );
             const engineer = ensureArray(data.engineers).find(
-              (e: any) => e.id === project?.engineerId
+              (e: any) => e.id === deployment.engineerId
             );
             const scripts = data.scripts.filter(
               (s: any) => s.deploymentId === deployment.id

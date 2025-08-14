@@ -1,6 +1,7 @@
 const pool = require("../config/database");
 const { logger } = require("../utils/logger");
 const { mapProjectToFrontend } = require("../utils/userMapper");
+const { resetSequenceIfTableEmpty } = require("../utils/sequenceUtils");
 
 // Get all project groups
 const getProjectGroups = async (req, res) => {
@@ -129,6 +130,9 @@ const deleteProjectGroup = async (req, res) => {
         message: "Project group not found",
       });
     }
+
+    // Check if project_groups table is empty and reset sequence if needed
+    await resetSequenceIfTableEmpty("project_groups");
 
     logger.info("Project group deleted", { projectGroupId: id });
     res.json({ message: "Project group deleted successfully" });
@@ -314,6 +318,9 @@ const deleteProject = async (req, res) => {
         message: "Project not found",
       });
     }
+
+    // Check if projects table is empty and reset sequence if needed
+    await resetSequenceIfTableEmpty("projects");
 
     logger.info("Project deleted", { projectId: id });
     res.json({ message: "Project deleted successfully" });

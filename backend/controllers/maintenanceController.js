@@ -1,6 +1,7 @@
 const pool = require("../config/database");
 const { mapMaintenanceRequestToFrontend } = require("../utils/userMapper");
 const { logger } = require("../utils/logger");
+const { resetSequenceIfTableEmpty } = require("../utils/sequenceUtils");
 
 // Helper function to generate unique request number
 const generateRequestNumber = async (clientName) => {
@@ -512,6 +513,11 @@ const deleteMaintenanceRequest = async (req, res) => {
         message: "Maintenance request not found",
       });
     }
+
+    // Check if tables are empty and reset sequences if needed
+    await resetSequenceIfTableEmpty("maintenance_work_logs");
+    await resetSequenceIfTableEmpty("maintenance_status_history");
+    await resetSequenceIfTableEmpty("maintenance_requests");
 
     logger.info("Maintenance request deleted", {
       maintenanceId: id,

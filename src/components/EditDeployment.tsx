@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Save, ArrowLeft, Rocket, Plus, X, Code } from "lucide-react";
 import { convertToWIB, convertWIBToUTC } from "../utils/timezone";
 import { ensureArray } from "../utils/arrayValidation";
 import { apiService } from "../services/apiService";
 import { Deployment, Script, Project, Engineer } from "../types";
+import { useNotification } from "../contexts/NotificationContext";
 
 interface EditDeploymentProps {
   data: {
@@ -21,6 +23,8 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
   deploymentId,
   onNavigate,
 }) => {
+  const { showSuccess, showError } = useNotification();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     projectId: "",
     status: "pending",
@@ -29,8 +33,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
     description: "",
     services: "",
   });
-
-  const [scripts, setScripts] = useState([{ title: "", content: "" }]);
+  const [scripts, setScripts] = useState<Script[]>([{ title: "", content: "" }]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -38,10 +41,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
   useEffect(() => {
     const loadDeployment = async () => {
       try {
-        const [deployment, scriptsData] = await Promise.all([
-          apiService.get<Deployment>(`/deployments/${deploymentId}`),
-          apiService.get<Script[]>(`/deployments/scripts?deploymentId=${deploymentId}`),
-        ]);
+        const deployment = await apiService.get<Deployment>(`/deployments/${deploymentId}`);
 
         // Convert UTC timestamp to WIB for display in datetime-local input
         const wibDate = deployment.deployedAt
@@ -58,9 +58,11 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
           services: deployment.services || "",
         });
 
+        // Use scripts from deployment response (now included in getDeploymentById)
+        const deploymentScripts = deployment.scripts || [];
         setScripts(
-          scriptsData.length > 0
-            ? scriptsData.map((s: Script) => ({
+          deploymentScripts.length > 0
+            ? deploymentScripts.map((s: Script) => ({
                 title: s.title,
                 content: s.content,
               }))
@@ -102,11 +104,25 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
 
       await apiService.put(`/deployments/${deploymentId}`, payload);
 
-      // Navigate back to deployments page
-      onNavigate("deployments");
+      // Show success notification
+      showSuccess(
+        "Deployment Updated",
+        "Deployment has been successfully updated."
+      );
+
+      // Navigate back to deployments page after a short delay
+      setTimeout(() => {
+        navigate("/deployments");
+      }, 1000);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update deployment";
       setError(errorMessage);
+      
+      // Show error notification
+      showError(
+        "Update Failed",
+        errorMessage
+      );
     }
   };
 
@@ -150,7 +166,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
           {error}
         </div>
         <button
-          onClick={() => onNavigate("deployments")}
+          onClick={() => navigate("/deployments")}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Back to Deployments
@@ -163,7 +179,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <button
-          onClick={() => onNavigate("deployments")}
+          onClick={() => navigate("/deployments")}
           className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -361,7 +377,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
         <div className="flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => onNavigate("deployments")}
+            onClick={() => navigate("/deployments")}
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
           >
             Cancel

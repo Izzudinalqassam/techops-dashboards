@@ -33,13 +33,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
     description: "",
     services: "",
   });
-  const [scripts, setScripts] = useState<Script[]>([{
-    title: "", content: "",
-    id: "",
-    deploymentId: "",
-    createdAt: "",
-    updatedAt: ""
-  }]);
+  const [scripts, setScripts] = useState<Script[]>([{ title: "", content: "" }]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -71,12 +65,8 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
             ? deploymentScripts.map((s: Script) => ({
                 title: s.title,
                 content: s.content,
-                id: s.id,
-                deploymentId: s.deploymentId,
-                createdAt: s.createdAt,
-                updatedAt: s.updatedAt,
               }))
-            : [{ title: "", content: "", id: "", deploymentId: "", createdAt: "", updatedAt: "" }, { title: "", content: "", id: "", deploymentId: "", createdAt: "", updatedAt: "" }]
+            : [{ title: "", content: "" }]
         );
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to load deployment data";
@@ -156,7 +146,7 @@ const EditDeployment: React.FC<EditDeploymentProps> = ({
   };
 
   const addScript = () => {
-    setScripts((prev) => [...prev, { title: "", content: "", id: "", deploymentId: "", createdAt: "", updatedAt: "" }]);
+    setScripts((prev) => [...prev, { title: "", content: "" }]);
   };
 
   const removeScript = (index: number) => {

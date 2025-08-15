@@ -1,6 +1,5 @@
 const pool = require("../config/database");
 const { logger } = require("../utils/logger");
-const { resetAllSequencesForEmptyTables, getSequenceStatus } = require("../utils/sequenceUtils");
 
 // Run database migrations
 const runMigrations = async (req, res) => {
@@ -537,61 +536,6 @@ const addProjectEngineerAssignment = async (req, res) => {
   }
 };
 
-// Reset sequences for empty tables only
-const resetSequencesForEmptyTables = async (req, res) => {
-  try {
-    logger.info("Starting sequence reset for empty tables", { adminId: req.user.id });
-
-    const resetSequences = await resetAllSequencesForEmptyTables();
-
-    if (resetSequences.length === 0) {
-      return res.status(200).json({
-        message: "No sequences needed to be reset (no empty tables found)",
-        resetSequences: [],
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    logger.info("Sequences reset for empty tables", {
-      adminId: req.user.id,
-      sequences: resetSequences,
-    });
-
-    res.json({
-      message: `Successfully reset ${resetSequences.length} sequence(s) for empty tables`,
-      resetSequences,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error("Reset sequences for empty tables error", error, { adminId: req.user?.id });
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: "Failed to reset sequences for empty tables",
-      details: error.message,
-    });
-  }
-};
-
-// Get sequence status for monitoring
-const getSequenceInfo = async (req, res) => {
-  try {
-    const sequences = await getSequenceStatus();
-    
-    res.json({
-      message: "Sequence information retrieved successfully",
-      sequences,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error("Get sequence info error", error, { adminId: req.user?.id });
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: "Failed to get sequence information",
-      details: error.message,
-    });
-  }
-};
-
 module.exports = {
   runMigrations,
   checkMigrationStatus,
@@ -600,6 +544,4 @@ module.exports = {
   resetSequences,
   clearAllData,
   addProjectEngineerAssignment,
-  resetSequencesForEmptyTables,
-  getSequenceInfo,
 };

@@ -1,7 +1,6 @@
 const pool = require("../config/database");
 const { logger } = require("../utils/logger");
 const { mapDeploymentToFrontend } = require("../utils/userMapper");
-const { resetSequenceIfTableEmpty } = require("../utils/sequenceUtils");
 
 // Create new deployment
 const createDeployment = async (req, res) => {
@@ -255,10 +254,6 @@ const deleteDeployment = async (req, res) => {
         message: "Deployment not found",
       });
     }
-
-    // Check if tables are empty and reset sequences if needed
-    await resetSequenceIfTableEmpty("deployments");
-    await resetSequenceIfTableEmpty("deployment_scripts");
 
     logger.info("Deployment deleted", { deploymentId: id });
     res.status(204).send(); // Use 204 No Content for successful deletion

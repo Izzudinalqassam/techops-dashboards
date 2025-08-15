@@ -11,8 +11,6 @@ const {
   resetSequences,
   clearAllData,
   addProjectEngineerAssignment,
-  resetSequencesForEmptyTables,
-  getSequenceInfo,
 } = require("../controllers/migrationController");
 
 // Temporary endpoint to make user admin (for testing) - no auth required
@@ -72,11 +70,5 @@ router.post(
 
 // POST /admin/migrate/add-project-engineer-assignment - Add engineer assignment column to projects
 router.post("/add-project-engineer-assignment", addProjectEngineerAssignment);
-
-// POST /admin/migrate/reset-sequences-empty-tables - Reset sequences for empty tables only
-router.post("/reset-sequences-empty-tables", resetSequencesForEmptyTables);
-
-// GET /admin/migrate/sequence-info - Get current sequence information
-router.get("/sequence-info", getSequenceInfo);
 
 module.exports = router;

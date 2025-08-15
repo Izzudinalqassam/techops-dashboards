@@ -2,7 +2,6 @@ const bcrypt = require("bcryptjs");
 const pool = require("../config/database");
 const { mapUserToFrontend } = require("../utils/userMapper");
 const { logger } = require("../utils/logger");
-const { resetSequenceIfTableEmpty } = require("../utils/sequenceUtils");
 
 // Get engineers list - all active users can be engineers
 const getEngineers = async (req, res) => {
@@ -278,9 +277,6 @@ const deleteUser = async (req, res) => {
 
     // Delete user
     await pool.query("DELETE FROM users WHERE id = $1", [id]);
-
-    // Check if users table is empty and reset sequence if needed
-    await resetSequenceIfTableEmpty("users");
 
     logger.info("User deleted by admin", {
       deletedUserId: id,

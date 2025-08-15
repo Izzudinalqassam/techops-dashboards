@@ -186,7 +186,7 @@ const Deployments: React.FC<DeploymentsProps> = ({
                       <div className="text-right">
                         <div className="flex items-center text-gray-500 text-sm mb-1">
                           <User className="h-4 w-4 mr-1" />
-                          {(engineer as { username?: string })?.username || "Unknown Engineer"}
+                          {engineer?.username}
                         </div>
                         <div className="flex items-center text-gray-500 text-sm">
                           <Calendar className="h-4 w-4 mr-1" />
